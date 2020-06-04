@@ -4,6 +4,7 @@ The objective of this project is to implement a genetic algorithm to learn and m
 The game itself can be played in terminal.
 
 ## TODO:
-[ ] Fix repeated key press issue
-[ ] Learn how genetic algorithms work 
-[ ] Implement and train a genetic algorithm
+
+- [ ] Fix repeated key press issue
+- [ ] Learn how genetic algorithms work 
+- [ ] Implement and train a genetic algorithm
