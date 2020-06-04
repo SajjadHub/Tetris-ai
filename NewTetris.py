@@ -78,11 +78,18 @@ def initBoard():
     [0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
     ]
     return board
 
 
-def printBoard(board):
+def printBoard(board, score):
+    os.system('clear')
+    print(score)
+    print()
     for row in board:
         for item in row:
             cprint(item, colours[item], end=" ")
@@ -176,14 +183,14 @@ def game():
         while not gameOver and not gamePause:
             nextStone = createStone(board)
             try:
-                printBoard(drawStone(board, activeStone))
+                printBoard(drawStone(board, activeStone), score)
             except NameError:
                 pass
             finally:
                 activeStone = nextStone
 
             if not hitStone(board, activeStone):
-                printBoard(drawStone(board, activeStone))
+                printBoard(drawStone(board, activeStone), score)
             else:
                 gameOver = True
                 print("Game Over")
@@ -196,28 +203,28 @@ def game():
                 if data == "q":
                     gameOver = True
                     break
-                if data == "s" and not hitStone(board, activeStone): # Down
-                    print("entered down key")
+                if data == "s": # Down
                     clearStone(board, activeStone)
                     activeStone.x += 1
-                    os.system('clear')
-                    printBoard(drawStone(board, activeStone))
+                    if hitStone(board, activeStone):
+                        activeStone.x -= 1
+                    else:
+                        score += 1
+                    printBoard(drawStone(board, activeStone), score)
                 elif data == "a": # Left
-                    os.system('clear')
-                    printBoard(slideStone(board, activeStone, 0))
+                    printBoard(slideStone(board, activeStone, 0), score)
                 elif data == "d": # Right
-                    os.system('clear')
-                    printBoard(slideStone(board, activeStone, 1))
+                    printBoard(slideStone(board, activeStone, 1), score)
                 elif data == "w": # Up
                     clearStone(board, activeStone)
                     activeStone.rotateCW()
-                    printBoard(drawStone(board, activeStone))
+                    if hitStone(board, activeStone):
+                        activeStone.rotateCW()
+                        activeStone.rotateCW()
+                        activeStone.rotateCW()
+                    printBoard(drawStone(board, activeStone), score)
 
-                os.system('clear')
-                print()
-                print(score, data)
-                print()
-                printBoard(drawStone(board, activeStone))
+                printBoard(drawStone(board, activeStone), score)
                 time.sleep(0.2)
                 clearStone(board, activeStone)
                 activeStone.x += 1
@@ -226,6 +233,9 @@ def game():
                     break
                 score += clearRows(board)
                 data = 0
+        data = input("Play again?")
+        if data == "y" or data == "yes" or data == "Y":
+            game()
         
 
 game()
