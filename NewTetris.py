@@ -9,6 +9,7 @@ import array
 from termcolor import cprint
 
 
+# class for async capture of user input
 class NonBlockingConsole(object):
 
     def __enter__(self):
@@ -25,6 +26,7 @@ class NonBlockingConsole(object):
         return False
 
 
+# A shape with its coordinates
 class stone():
     def __init__(self, x, y, shape):
         self.x = x
@@ -36,10 +38,14 @@ class stone():
                       for y in range(len(self.shape))]
                       for x in range(len(self.shape[0]) - 1, -1, -1)]
 
+        # TODO: Refactor to make more efficient
+    def rotateCCW(self):
+        self.rotateCW()
+        self.rotateCW()
+        self.rotateCW()
 
-cols = 10
-rows = 24
 
+# array of shapes
 shapes = [
         [[1, 1, 1], [0, 1, 0]],
         [[0, 2, 2], [2, 2, 0]],
@@ -51,8 +57,10 @@ shapes = [
         ]
 
 
+# scores according to original nintendo scoring (pre line clear)
 scores = {0: 0, 1: 40, 2: 100, 3: 300, 4: 1200}
 
+# To bijazz the terminal
 colours = {0: "white", 1: "yellow", 2: "green", 3: "cyan", 4: "grey", 5: "magenta", 6: "red", 7: "blue"}
 
 
@@ -86,6 +94,7 @@ def initBoard():
     return board
 
 
+# prints the current board and colours certain numbers according to the colours dictionary
 def printBoard(board, score):
     os.system('clear')
     print(score)
@@ -96,10 +105,12 @@ def printBoard(board, score):
         print()
 
 
+# Creates a stone with a random shape and places is in the top center of the board
 def createStone(board):
     return stone(0, len(board[0])/2 - 1, random.choice(shapes))
 
 
+# draws/ inserts a stone onto the board
 def drawStone(board, stone):
     for i in range(len(stone.shape)):
         for j in range(len(stone.shape[i])):
@@ -108,6 +119,7 @@ def drawStone(board, stone):
     return board
 
 
+# determines if the stone is hitting something
 def checkCollision(board, stone):
     for i, row in enumerate(stone.shape):
         for j, cell in enumerate(row):
@@ -116,11 +128,13 @@ def checkCollision(board, stone):
                 if cell != 0 and tempBoard[int(stone.x + i)][int(stone.y + j)] != 0:
                     return True # collides with existing piece
             except IndexError:
+                # colliding with wall
                 return True
     return False
 
 
 
+# essentially same as checkCollision but doesnt remove the stone when checking if there is a hit (due to the funky way i deal with collision in run(), this was easier than debugging)
 def hitStone(board, stone):
     for i, row in enumerate(stone.shape):
         for j, cell in enumerate(row):
@@ -134,6 +148,7 @@ def hitStone(board, stone):
 
 
 
+# Clears any row that is full and increases the score according to the number of simultaneous clears
 def clearRows(board):
     linesCleared = 0
     for i, row in enumerate(board):
@@ -144,6 +159,7 @@ def clearRows(board):
     return scores[linesCleared]
 
 
+# slides the stone left or right based on a direction input
 def slideStone(board, stone, direction):
     if stone.y - 1 >= 0 and not direction:
         clearStone(board, stone)
@@ -163,6 +179,7 @@ def slideStone(board, stone, direction):
         return board
 
 
+# clear the stone from board (for redrawing when moving the stone)
 def clearStone(board, stone):
     for i in range(len(stone.shape)):
         for j in range(len(stone.shape[0])):
@@ -171,6 +188,7 @@ def clearStone(board, stone):
     return board
 
 
+# the actual function running the game
 def game():
     os.system('clear')
     board = initBoard()
@@ -178,10 +196,12 @@ def game():
     gamePause = False
     score = 0
     
+    # initialise async console
     with NonBlockingConsole() as nbc:
 
-        while not gameOver and not gamePause:
+        while not gameOver:
             nextStone = createStone(board)
+            # for the special case when its the first round and there is no active stone
             try:
                 printBoard(drawStone(board, activeStone), score)
             except NameError:
@@ -200,10 +220,12 @@ def game():
 
                 data = nbc.get_data()
                 print(data)
+
                 if data == "q":
                     gameOver = True
                     break
-                if data == "s": # Down
+
+                elif data == "s": # Down
                     clearStone(board, activeStone)
                     activeStone.x += 1
                     if hitStone(board, activeStone):
@@ -211,21 +233,29 @@ def game():
                     else:
                         score += 1
                     printBoard(drawStone(board, activeStone), score)
+
                 elif data == "a": # Left
                     printBoard(slideStone(board, activeStone, 0), score)
+
                 elif data == "d": # Right
                     printBoard(slideStone(board, activeStone, 1), score)
-                elif data == "w": # Up
+
+                elif data == "m": # CW rotation
                     clearStone(board, activeStone)
                     activeStone.rotateCW()
                     if hitStone(board, activeStone):
-                        activeStone.rotateCW()
-                        activeStone.rotateCW()
+                        activeStone.rotateCCW()
+                    printBoard(drawStone(board, activeStone), score)
+
+                elif data == "n": # CCW rotation
+                    clearStone(board, activeStone)
+                    activeStone.rotateCCW()
+                    if hitStone(board, activeStone):
                         activeStone.rotateCW()
                     printBoard(drawStone(board, activeStone), score)
 
                 printBoard(drawStone(board, activeStone), score)
-                time.sleep(0.2)
+                time.sleep(0.22)
                 clearStone(board, activeStone)
                 activeStone.x += 1
                 if hitStone(board, activeStone):
@@ -233,9 +263,12 @@ def game():
                     break
                 score += clearRows(board)
                 data = 0
-        data = input("Play again?")
-        if data == "y" or data == "yes" or data == "Y":
-            game()
+        if gameOver:
+            data = input("Play again?")
+            if data == "y":
+                gameOver = False
+                score = 0
+                game()
         
 
 game()
