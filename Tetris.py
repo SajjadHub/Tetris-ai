@@ -1,12 +1,13 @@
 import sys
 import pygame
 import random
-import copy
 
+# Global variables
 row = 24
 col = 10
 cell = 30
 
+# Colours for pygame display
 colours = [
     (0,   0,   0),
     (255, 0,   0),
@@ -46,6 +47,7 @@ shapes = [
 
 
 def joinMatrixes(mat1, mat2, mat2_off):
+    """Adds a piece (mat2) to the board"""
     off_x, off_y = mat2_off
     for cy, row in enumerate(mat2):
         for cx, val in enumerate(row):
@@ -54,14 +56,27 @@ def joinMatrixes(mat1, mat2, mat2_off):
 
 
 def rotateClockwise(shape):
+    """Rotates a piece"""
     return [[shape[y][x]
              for y in range(len(shape))]
             for x in range(len(shape[0]) - 1, -1, -1)]
 
 
 def removeRow(board, row):
+    """Deletes a row and adds new one to the top"""
     del board[row]
     return [[0 for i in range(col)]] + board
+
+
+def checkCollision(board, stone):
+    """Checks if there is a collision"""
+    if stone.y + len(stone.shape) - 1 >= row:
+        return True
+    for j, rows in enumerate(stone.shape):
+        for i, cell in enumerate(rows):
+            if cell and board[j + stone.y][i + stone.x]:
+                return True
+    return False
 
 
 class Stone():
@@ -86,7 +101,6 @@ class Tetris():
         self.createBoard()
 
     def createBoard(self):
-        # self.board = np.zeros((row, col), dtype=int)
         self.board = [
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -115,6 +129,7 @@ class Tetris():
         ]
 
     def createStone(self):
+        """Creates stone and places it at the top of the board if it can"""
         self.stone = Stone(int(col/2 - 1), 0, random.choice(shapes))
 
         if checkCollision(self.board, self.stone):
@@ -130,14 +145,15 @@ class Tetris():
             self.stone.shape = temp
 
     def drawGame(self, mat, offset):
+        """Renders the matrix on the display"""
         offx, offy = offset
         for y, row in enumerate(mat):
             for x, val in enumerate(row):
-                if val:
-                    pygame.draw.rect(self.screen, colours[val], pygame.Rect(
-                        (offx+x) * cell, (offy+y) * cell, cell, cell))
+                pygame.draw.rect(self.screen, colours[val], pygame.Rect(
+                    (offx+x) * cell, (offy+y) * cell, cell, cell))
 
     def clearGame(self, mat, offset):
+        """Clears the matrix from the display"""
         offx, offy = offset
         for y, row in enumerate(mat):
             for x, val in enumerate(row):
@@ -146,6 +162,7 @@ class Tetris():
                         (offx+x) * cell, (offy+y) * cell, cell, cell))
 
     def drop(self):
+        """Drops piece and updates score"""
         lines = 0
         self.clearGame(self.stone.shape, (self.stone.x, self.stone.y))
         self.stone.y += 1
@@ -165,6 +182,7 @@ class Tetris():
             self.createStone()
 
     def move(self, dir):
+        """Slides stone left and right"""
         temp = self.stone.x
         newX = self.stone.x + dir
         if newX < 0:
@@ -176,18 +194,17 @@ class Tetris():
             self.stone.x = temp
 
     def quit(self):
-        print(getMoves(self.board, self.stone, 'NONE'))
-        for item in self.board:
-            print(item)
-        print()
-        # print(getMoves(self.board, self.stone, 'None'))
         sys.exit()
 
     def playerDrop(self):
         self.drop()
         self.score += 1
 
+    def togglePaused(self):
+        self.paused = not self.paused
+
     def run(self):
+        """Actually runs the game"""
         self.score = 0
         keys = {
             'ESCAPE':	self.quit,
@@ -195,6 +212,7 @@ class Tetris():
             'RIGHT': lambda: self.move(+1),
             'DOWN': self.playerDrop,
             'UP': self.rotateStone,
+            'p': self.togglePaused,
         }
         self.gameover = False
         self.paused = False
@@ -203,7 +221,7 @@ class Tetris():
         pygame.time.set_timer(pygame.USEREVENT+1, 750)
         clock = pygame.time.Clock()
 
-        while not self.gameover:
+        while not self.gameover and not self.paused:
 
             self.drawGame(self.board, (0, 0))
             self.drawGame(self.stone.shape, (self.stone.x, self.stone.y))
@@ -222,149 +240,5 @@ class Tetris():
         # pygame.time.wait(110)
 
 
-def getMoves(board, stone, move):
-    """Get best possible move set based on heuristics"""
-    aiScore = 0
-    bestScore = -10000000000000
-    tempStone = Stone(stone.x, stone.y, stone.shape)
-    tempBoard = copy.deepcopy(board)
-    moves = []
-    temp = 0
-
-    for i in range(4):
-        tempStone.shape = rotateClockwise(tempStone.shape)
-        for j in range(col - len(tempStone.shape[0]) + 1):
-            tempStone.x = j
-            for k in range(row - len(tempStone.shape) + 2):
-                tempBoard = copy.deepcopy(board)
-                tempStone.y = k
-                temp += 1
-                if checkCollision(tempBoard, tempStone):
-                    aiScore = getScore(tempBoard, tempStone)
-                    if aiScore > bestScore:
-                        moves = []
-                        bestScore = aiScore
-                        distance = i - stone.x
-                        if distance > 0:
-                            moves.append(distance * 'RIGHT')
-                        elif distance < 0:
-                            moves.append(distance * 'LEFT')
-                        else:
-                            pass
-                        for _ in range(j):
-                            moves.append('UP')
-                        for _ in range(k):
-                            moves.append('DOWN')
-
-    return moves
-
-
-def getScore(board, stone):
-    tempBoard = joinMatrixes(board, stone.shape, (stone.x, stone.y))
-    """
-    for item in tempBoard:
-        print(item)
-    print()
-    print(aggHeight, completeLines, holes, bump)
-    """
-
-    a = -0.5
-    b = 0.76
-    c = -0.35
-    d = -0.18
-
-    aggHeight = getAggregateHeight(tempBoard)
-    completeLines = getCompleteLines(tempBoard)
-    holes = getHoles(tempBoard)
-    bump = getBumpiness(tempBoard)
-
-    return a*aggHeight + b*completeLines + c*holes + d*bump
-
-
-def getAggregateHeight(board):
-    height = []
-    for j in range(col):
-        i = 0
-        for i in range(row):
-            if board[i][j] != 0:
-                height.append(row - i)
-                break
-    return sum(height)
-
-
-def getCompleteLines(board):
-    lines = 0
-    for row in board:
-        if 0 not in row:
-            lines += 1
-    return lines
-
-
-def getHoles(board):
-    holes = 0
-    possibleHoles = False
-    for j in range(col):
-        i = 0
-        possibleHoles = False
-        while i < row:
-            if possibleHoles:
-                if board[i][j] == 0:
-                    holes += 1
-            elif board[i][j] != 0:
-                possibleHoles = True
-            i += 1
-    return holes
-
-
-def getBumpiness(board):
-    diff = 0
-    height = []
-    for j in range(col):
-        for i in range(row):
-            if board[i][j] != 0 or i == row:
-                height.append(row - i)
-    for j in range(len(height) - 1):
-        diff += height[j] - height[j + 1]
-    return diff
-
-
-def checkCollision(board, stone):
-    for j, row in enumerate(stone.shape):
-        for i, cell in enumerate(row):
-            try:
-                if cell and board[j + stone.y][i + stone.x]:
-                    return True
-            except IndexError:
-                return True
-    return False
-
-
-game = Tetris()
-game.run()
-
-"""    moves.append(move)
-
-    tempStone.shape = rotateClockwise(tempStone.shape)
-    moves.append(getMoves(tempBoard, tempStone, 'UP'))
-    tempStone.shape = stone.shape
-
-    tempStone.x -= 1
-    moves.append(getMoves(tempBoard, tempStone, 'LEFT'))
-    tempStone.x += 2
-
-    moves.append(getMoves(tempBoard, tempStone, 'RIGHT'))
-"""
-"""<                moves = []
-                bestScore = aiScore
-                distance = i - stone.x
-                if distance > 0:
-                    moves.append(distance * 'RIGHT')
-                elif distance < 0:
-                    moves.append(distance * 'LEFT')
-                else:
-                    pass
-                for _ in range(j):
-                    moves.append('UP')
-                for _ in range(k):
-                    moves.append('DOWN')
-"""
+# game = Tetris()
+# game.run()
