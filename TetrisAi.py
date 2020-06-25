@@ -36,11 +36,9 @@ class TetrisAi(Tetris.Tetris):
             lines = 0
             for i, row in enumerate(self.board):
                 if 0 not in row:
-                    print("full line here")
-                    print(row, i)
                     self.board = numpy.delete(self.board, i, 0)
-                    self.board = numpy.insert(self.board, numpy.zeros(
-                        Tetris.row, dtype=int), 0)
+                    self.board = numpy.insert(self.board, 0, numpy.zeros(
+                        Tetris.col, dtype=int), 0)
                     self.drawGame(self.board, (0, 0))
                     lines += 1
 
@@ -48,7 +46,7 @@ class TetrisAi(Tetris.Tetris):
             pygame.display.update()
             # self.drop()
             # clock.tick(1)
-            pygame.time.wait(50)
+            pygame.time.wait(40)
             self.createStone()
         return self.score
 
@@ -62,13 +60,21 @@ class TetrisAi(Tetris.Tetris):
 
     def selectPopulation(self):
         population = initalPopulation()
-        for i in range(5):
+        for i in range(10):
+            print("Generation: " + str(i))
             chromosomeScore = self.getChromosomeScores(population)
-            parentA = population[chromosomeScore.index(max(chromosomeScore))]
-            print(chromosomeScore, parentA)
+            print(chromosomeScore)
+
+            bestChromIndex = chromosomeScore.index(max(chromosomeScore))
+            parentA = population[bestChromIndex]
+            population.pop(bestChromIndex)
+            chromosomeScore.pop(bestChromIndex)
+            print(parentA, bestChromIndex)
+
+            goodChromIndex = chromosomeScore.index(max(chromosomeScore))
+            parentB = population[goodChromIndex]
+            print(parentB, goodChromIndex)
             print()
-            population.remove(parentA)
-            parentB = population[chromosomeScore.index(max(chromosomeScore))]
 
             population = crossover(parentA, parentB)
 
@@ -142,6 +148,7 @@ def getScore(board, stone, chrom):
     holes = getHoles(tempBoard)
     bump = getBumpiness(tempBoard)
 
+    """
     file = open("boards/boards.txt", "a")
     for item in tempBoard:
         file.write("%s\n" % item)
@@ -151,6 +158,7 @@ def getScore(board, stone, chrom):
     file.write("\n")
     file.close
     print(aggHeight, completeLines, holes, bump)
+    """
 
     return a*aggHeight + b*completeLines + c*holes + d*bump
 
@@ -209,13 +217,13 @@ def initalPopulation():
     for i in range(populationSize):
         tempChromosome = []
         for j in range(chromosomeSize):
-            tempChromosome.append(random.uniform(-2, 2))
+            tempChromosome.append(random.uniform(-10, 10))
         population.append(tempChromosome)
     return population
 
 
 def crossover(parentA, parentB):
-    mutation = 9
+    mutation = 19
     population = []
     for i in range(populationSize):
         tempChromosome = []
@@ -226,7 +234,7 @@ def crossover(parentA, parentB):
                 tempChromosome.append(parentB[j])
             if random.randrange(mutation) == 1:
                 index = tempChromosome.index(random.choice(tempChromosome))
-                tempChromosome[index] = random.uniform(-5, 5)
+                tempChromosome[index] = random.uniform(-10, 10)
         population.append(tempChromosome)
     return population
 
