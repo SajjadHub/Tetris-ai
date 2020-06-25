@@ -17,7 +17,18 @@ class TetrisAi(Tetris.Tetris):
         """Using numpy array instead of list **"""
         self.board = numpy.zeros((Tetris.row, Tetris.col), dtype=int)
 
+    def createStone(self):
+        """Creates stone and places it at the top of the board if it can"""
+        self.nextStone = Tetris.Stone(
+            int(Tetris.col/2 - 1), 0, random.choice(Tetris.shapes))
+        self.stone = Tetris.Stone(
+            self.nextStone.x, self.nextStone.y, self.nextStone.shape)
+
+        if Tetris.checkCollision(self.board, self.stone):
+            self.gameover = True
+
     def run(self, chromosomes):
+        random.seed()
         lines = 0
         self.createBoard()
         self.score = 0
@@ -29,7 +40,7 @@ class TetrisAi(Tetris.Tetris):
         # clock = pygame.time.Clock()
 
         while not self.gameover:
-            getMoves(self.board, self.stone, chromosomes)
+            getMoves(self.board, self.stone, chromosomes, self.nextStone)
             self.drawGame(self.board, (0, 0))
             # self.drawGame(self.stone.shape,
             #              (self.stone.x, self.stone.y))
@@ -64,19 +75,23 @@ class TetrisAi(Tetris.Tetris):
             print("Generation: " + str(i))
             chromosomeScore = self.getChromosomeScores(population)
             print(chromosomeScore)
+            pool = []
+            for i in range(populationSize - 1):
+                indexA = random.randint(0, populationSize - 1)
+                parentA = population[indexA]
+                indexB = random.randint(0, populationSize - 1)
+                parentB = population[indexB]
+                if chromosomeScore[indexA] > chromosomeScore[indexB]:
+                    pool.append(parentA)
+                else:
+                    pool.append(parentB)
 
-            bestChromIndex = chromosomeScore.index(max(chromosomeScore))
-            parentA = population[bestChromIndex]
-            population.pop(bestChromIndex)
-            chromosomeScore.pop(bestChromIndex)
-            print(parentA, bestChromIndex)
-
-            goodChromIndex = chromosomeScore.index(max(chromosomeScore))
-            parentB = population[goodChromIndex]
-            print(parentB, goodChromIndex)
-            print()
-
-            population = crossover(parentA, parentB)
+            for j in pool:
+                print(j)
+            population = []
+            for i in range(populationSize - 1):
+                population.append(
+                    crossover(random.choice(pool), random.choice(pool)))
 
 
 rotations = (4, 2, 2, 4, 4, 2, 1)
@@ -111,10 +126,12 @@ def rotateClockwise(shape):
     return numpy.rot90(shape)
 
 
-def getMoves(board, stone, chrom):
+def getMoves(board, stone, chrom, nextStone=None):
     """Get best possible move set based on heuristics"""
     aiScore = 0
     bestScore = -10000000000000
+    nextAiScore = 0
+    nextBestScore = -1000000000000
     tempStone = Tetris.Stone(stone.x, stone.y, stone.shape)
     tempBoard = copy.deepcopy(board)
 
@@ -127,12 +144,24 @@ def getMoves(board, stone, chrom):
             while not Tetris.checkCollision(tempBoard, tempStone):
                 tempStone.y += 1
             if tempStone.y != 0:
-                aiScore = getScore(tempBoard, tempStone, chrom)
-                if aiScore > bestScore:
-                    bestScore = aiScore
-                    stone.shape = copy.deepcopy(tempStone.shape)
-                    stone.x = j
-                    stone.y = tempStone.y
+                if nextStone:
+                    nextTempBoard = copy.deepcopy(tempBoard)
+                    nextTempBoard = Tetris.joinMatrixes(
+                        nextTempBoard, tempStone.shape, (tempStone.x, tempStone.y))
+                    getMoves(nextTempBoard, nextStone, chrom)
+                    nextAiScore = getScore(nextTempBoard, nextStone, chrom)
+                    if nextAiScore > nextBestScore:
+                        nextBestScore = nextAiScore
+                        stone.shape = copy.deepcopy(tempStone.shape)
+                        stone.x = j
+                        stone.y = tempStone.y
+                else:
+                    aiScore = getScore(tempBoard, tempStone, chrom)
+                    if aiScore > bestScore:
+                        bestScore = aiScore
+                        stone.shape = copy.deepcopy(tempStone.shape)
+                        stone.x = j
+                        stone.y = tempStone.y
     board = Tetris.joinMatrixes(board, stone.shape, (stone.x, stone.y))
 
 
@@ -224,19 +253,16 @@ def initalPopulation():
 
 def crossover(parentA, parentB):
     mutation = 19
-    population = []
-    for i in range(populationSize):
-        tempChromosome = []
-        for j in range(chromosomeSize):
-            if j <= chromosomeSize/2:
-                tempChromosome.append(parentA[j])
-            else:
-                tempChromosome.append(parentB[j])
-            if random.randrange(mutation) == 1:
-                index = tempChromosome.index(random.choice(tempChromosome))
-                tempChromosome[index] = random.uniform(-10, 10)
-        population.append(tempChromosome)
-    return population
+    chrom = []
+    for j in range(chromosomeSize):
+        if j <= chromosomeSize/2:
+            chrom.append(parentA[j - 1])
+        else:
+            chrom.append(parentB[j - 1])
+        if random.randrange(mutation) == 1:
+            chrom[random.randrange(0, chromosomeSize - 1)
+                  ] = random.uniform(-10, 10)
+    return chrom
 
 
 aiGame = TetrisAi()
