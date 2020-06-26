@@ -4,7 +4,7 @@ import copy
 import pygame
 import numpy
 
-populationSize = 16
+populationSize = 20
 chromosomeSize = 4
 
 
@@ -71,17 +71,23 @@ class TetrisAi(Tetris.Tetris):
 
     def selectPopulation(self):
         population = initalPopulation()
-        for i in range(10):
+        for i in range(25):
             print("Generation: " + str(i))
             chromosomeScore = self.getChromosomeScores(population)
             print(chromosomeScore)
             pool = []
-            for i in range(populationSize - 1):
+            for i in range(populationSize):
                 indexA = random.randint(0, populationSize - 1)
                 parentA = population[indexA]
                 indexB = random.randint(0, populationSize - 1)
                 parentB = population[indexB]
-                if chromosomeScore[indexA] > chromosomeScore[indexB]:
+                print(indexA, indexB)
+                if chromosomeScore[indexA] == chromosomeScore[indexB] and chromosomeScore[indexA] == 0:
+                    tempChromosome = []
+                    for j in range(chromosomeSize):
+                        tempChromosome.append(random.uniform(-10, 10))
+                    pool.append(tempChromosome)
+                elif chromosomeScore[indexA] > chromosomeScore[indexB]:
                     pool.append(parentA)
                 else:
                     pool.append(parentB)
@@ -89,7 +95,7 @@ class TetrisAi(Tetris.Tetris):
             for j in pool:
                 print(j)
             population = []
-            for i in range(populationSize - 1):
+            for i in range(populationSize):
                 population.append(
                     crossover(random.choice(pool), random.choice(pool)))
 
@@ -254,21 +260,23 @@ def initalPopulation():
 def crossover(parentA, parentB):
     mutation = 19
     chrom = []
-    for j in range(chromosomeSize):
+    for j in range(0, chromosomeSize):
         if j <= chromosomeSize/2:
-            chrom.append(parentA[j - 1])
+            chrom.append(parentA[j])
         else:
-            chrom.append(parentB[j - 1])
-        if random.randrange(mutation) == 1:
-            chrom[random.randrange(0, chromosomeSize - 1)
-                  ] = random.uniform(-10, 10)
+            chrom.append(parentB[j])
+    if random.randint(0, mutation) == 1:
+        chrom[random.randint(0, chromosomeSize - 1)
+              ] = random.uniform(-10, 10)
     return chrom
 
 
 aiGame = TetrisAi()
 aiGame.selectPopulation()
 '''
-aiGame.run([-2.268910153676363, -0.4314094583476784, -
-            4.4774033698388145, 4.817498457835743])
+aiGame.run(
+    [-6.375925963691524, 2.1971346793421525, -5.146724194390657, 6.237154216524964]
+)
+print(aiGame.score)
 [-4.979091611231792, -3.874580968703741, 3.6813670576263906, 0.2492662938148813]
 '''
