@@ -96,6 +96,10 @@ class Tetris():
         pygame.key.set_repeat(6, 3)
         self.width = col*cell
         self.height = row*cell
+        self.bagIndex = 0
+        self.bagShapes = []
+        for i in range(len(shapes)):
+            self.bagShapes.append(random.choice(shapes))
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.event.set_blocked(pygame.MOUSEMOTION)
         self.createBoard()

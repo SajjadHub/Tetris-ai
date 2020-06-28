@@ -3,9 +3,10 @@ import random
 import copy
 import pygame
 import numpy
+import os
 
 populationSize = 20
-chromosomeSize = 4
+chromosomeSize = 5
 
 
 class TetrisAi(Tetris.Tetris):
@@ -19,13 +20,19 @@ class TetrisAi(Tetris.Tetris):
 
     def createStone(self):
         """Creates stone and places it at the top of the board if it can"""
+        if self.bagIndex == 6:
+            for i in range(len(Tetris.shapes)):
+                self.bagShapes.append(random.choice(Tetris.shapes))
+                self.bagIndex = 0
+
         self.nextStone = Tetris.Stone(
-            int(Tetris.col/2 - 1), 0, random.choice(Tetris.shapes))
+            int(Tetris.col/2 - 1), 0, self.bagShapes.pop())
         self.stone = Tetris.Stone(
             self.nextStone.x, self.nextStone.y, self.nextStone.shape)
 
         if Tetris.checkCollision(self.board, self.stone):
             self.gameover = True
+        self.bagIndex += 1
 
     def run(self, chromosomes):
         random.seed()
@@ -76,18 +83,17 @@ class TetrisAi(Tetris.Tetris):
             chromosomeScore = self.getChromosomeScores(population)
             print(chromosomeScore)
             pool = []
-            for i in range(populationSize):
+            bestChromIndex = chromosomeScore.index(max(chromosomeScore))
+            bestChrom = population[bestChromIndex]
+            print(bestChrom, bestChromIndex)
+            print()
+            pool.append(bestChrom)
+            for i in range(populationSize - 1):
                 indexA = random.randint(0, populationSize - 1)
                 parentA = population[indexA]
                 indexB = random.randint(0, populationSize - 1)
                 parentB = population[indexB]
-                print(indexA, indexB)
-                if chromosomeScore[indexA] == chromosomeScore[indexB] and chromosomeScore[indexA] == 0:
-                    tempChromosome = []
-                    for j in range(chromosomeSize):
-                        tempChromosome.append(random.uniform(-10, 10))
-                    pool.append(tempChromosome)
-                elif chromosomeScore[indexA] > chromosomeScore[indexB]:
+                if chromosomeScore[indexA] > chromosomeScore[indexB]:
                     pool.append(parentA)
                 else:
                     pool.append(parentB)
@@ -111,21 +117,25 @@ def returnRotation(stone):
 
 
 def hitBottom(board, stone):
-    if stone.y + len(stone.shape) >= Tetris.row:
-        return True
+    # bottom piece, collison
+    bottom, collide = False, False
+
     for j, row in enumerate(stone.shape):
         for i, cell in enumerate(row):
-            if board[stone.y + j + 1][i + stone.x] and cell:
-                return True
-    return False
-
-
-def isValidPosition(board, stone):
-    for j, row in enumerate(stone.shape):
-        for i, cell in enumerate(row):
-            if board[j + stone.y - 1][i + stone.x - 1] and cell:
-                return False
-    return True
+            # check if in collison
+            try:
+                if board[stone.y + j][stone.x + i] and cell:
+                    collide = True
+                    return bottom, collide
+            except IndexError:
+                collide = True
+            # if not, check if there is something underneath the piece
+            try:
+                if board[stone.y + j + 1][i + stone.x] and cell:
+                    bottom = True
+            except IndexError:
+                bottom = True
+    return bottom, collide
 
 
 def rotateClockwise(shape):
@@ -138,47 +148,51 @@ def getMoves(board, stone, chrom, nextStone=None):
     bestScore = -10000000000000
     nextAiScore = 0
     nextBestScore = -1000000000000
-    tempStone = Tetris.Stone(stone.x, stone.y, stone.shape)
+    tempShape = copy.deepcopy(stone.shape)
+    tempStone = Tetris.Stone(stone.x, stone.y, tempShape)
     tempBoard = copy.deepcopy(board)
 
     for i in range(returnRotation(stone)):
         tempStone.shape = rotateClockwise(tempStone.shape)
-        for j in range(Tetris.col - len(tempStone.shape[0]) + 1):
-            tempStone.x = j
-            tempStone.y = 0
-            tempBoard = copy.deepcopy(board)
-            while not Tetris.checkCollision(tempBoard, tempStone):
-                tempStone.y += 1
-            if tempStone.y != 0:
-                if nextStone:
-                    nextTempBoard = copy.deepcopy(tempBoard)
-                    nextTempBoard = Tetris.joinMatrixes(
-                        nextTempBoard, tempStone.shape, (tempStone.x, tempStone.y))
-                    getMoves(nextTempBoard, nextStone, chrom)
-                    nextAiScore = getScore(nextTempBoard, nextStone, chrom)
-                    if nextAiScore > nextBestScore:
-                        nextBestScore = nextAiScore
-                        stone.shape = copy.deepcopy(tempStone.shape)
-                        stone.x = j
-                        stone.y = tempStone.y
-                else:
-                    aiScore = getScore(tempBoard, tempStone, chrom)
-                    if aiScore > bestScore:
-                        bestScore = aiScore
-                        stone.shape = copy.deepcopy(tempStone.shape)
-                        stone.x = j
-                        stone.y = tempStone.y
+        for j in range(Tetris.row - len(tempStone.shape) + 1):
+            tempStone.y = j
+            for k in range(Tetris.col - len(tempStone.shape[0]) + 1):
+                tempStone.x = k
+                tempBoard = copy.deepcopy(board)
+                bottom, collide = hitBottom(tempBoard, tempStone)
+                if bottom and not collide:
+                    tempStone.y += 1  # Due to how i check for collision, this is needed
+                    if nextStone:
+                        nextTempBoard = copy.deepcopy(tempBoard)
+                        nextTempBoard = Tetris.joinMatrixes(
+                            nextTempBoard, tempStone.shape, (tempStone.x, tempStone.y))
+                        getMoves(nextTempBoard, nextStone, chrom)
+                        nextAiScore = getScore(nextTempBoard, nextStone, chrom)
+                        if nextAiScore > nextBestScore:
+                            nextBestScore = nextAiScore
+                            stone.shape = copy.deepcopy(tempStone.shape)
+                            stone.x = k
+                            stone.y = tempStone.y
+                    else:
+                        aiScore = getScore(tempBoard, tempStone, chrom)
+                        if aiScore > bestScore:
+                            bestScore = aiScore
+                            stone.shape = copy.deepcopy(tempStone.shape)
+                            stone.x = k
+                            stone.y = tempStone.y
+
     board = Tetris.joinMatrixes(board, stone.shape, (stone.x, stone.y))
 
 
 def getScore(board, stone, chrom):
-    aggHeight, completeLines, holes, bump = 0, 0, 0, 0
+    """Returns score based on 5 heuristics:"""
+    aggHeight, weightedHeight,  completeLines, holes, bump = 0, 0, 0, 0, 0
     tempBoard = copy.deepcopy(board)
 
     tempBoard = Tetris.joinMatrixes(tempBoard, stone.shape, (stone.x, stone.y))
-    a, b, c, d = chrom
+    a, b, c, d, e = chrom
 
-    aggHeight = getAggregateHeight(tempBoard)
+    aggHeight, weightedHeight = getHeight(tempBoard)
     completeLines = getCompleteLines(tempBoard)
     holes = getHoles(tempBoard)
     bump = getBumpiness(tempBoard)
@@ -195,10 +209,11 @@ def getScore(board, stone, chrom):
     print(aggHeight, completeLines, holes, bump)
     """
 
-    return a*aggHeight + b*completeLines + c*holes + d*bump
+    return a*aggHeight + b*weightedHeight ** 1.5 + c*completeLines + d*holes + e*bump
 
 
-def getAggregateHeight(board):
+def getHeight(board):
+    """Returns sum of all heights, and length of tallest col"""
     height = []
     for j in range(Tetris.col):
         i = 0
@@ -206,10 +221,11 @@ def getAggregateHeight(board):
             if board[i][j] != 0:
                 height.append(Tetris.row - i)
                 break
-    return sum(height)
+    return sum(height), max(height)
 
 
 def getCompleteLines(board):
+    """Returns number of complete lines in a board"""
     lines = 0
     for row in board:
         if 0 not in row:
@@ -218,6 +234,7 @@ def getCompleteLines(board):
 
 
 def getHoles(board):
+    "Returns number of holes in a board"
     holes = 0
     possibleHoles = False
     for j in range(Tetris.col):
@@ -260,23 +277,22 @@ def initalPopulation():
 def crossover(parentA, parentB):
     mutation = 19
     chrom = []
-    for j in range(0, chromosomeSize):
-        if j <= chromosomeSize/2:
-            chrom.append(parentA[j])
-        else:
-            chrom.append(parentB[j])
+    for i in range(chromosomeSize):
+        chrom.append(random.choice([parentA[i], parentB[i]]))
     if random.randint(0, mutation) == 1:
         chrom[random.randint(0, chromosomeSize - 1)
               ] = random.uniform(-10, 10)
     return chrom
 
 
+# if os.path.exists("boards/boards.txt"):
+#    os.remove("boards/boards.txt")
 aiGame = TetrisAi()
 aiGame.selectPopulation()
 '''
-aiGame.run(
-    [-6.375925963691524, 2.1971346793421525, -5.146724194390657, 6.237154216524964]
-)
+aiGame.run([-6.57710768359387, -1.7905827414339708,
+            3.142043103333581, -7.665825026801205, 0.8305372421822454])
 print(aiGame.score)
 [-4.979091611231792, -3.874580968703741, 3.6813670576263906, 0.2492662938148813]
+tempStone = 0
 '''
